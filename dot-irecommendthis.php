@@ -416,12 +416,18 @@ if ( ! class_exists( 'DOT_IRecommendThis' ) )
 			if( !isset($options['text_zero_suffix']) ) $options['text_zero_suffix'] = '';
 			if( !isset($options['text_one_suffix']) ) $options['text_one_suffix'] = '';
 			if( !isset($options['text_more_suffix']) ) $options['text_more_suffix'] = '';
-
-			if( isset($_POST['recommend_id']) ) {
+			//RECOMMEND
+			if( isset($_POST['recommend_id']) && $_POST['type'] != 'delete') {
 				// Click event. Get and Update Count
 				$post_id = str_replace('dot-irecommendthis-', '', $_POST['recommend_id']);
 				echo $this->dot_recommend_this($post_id, $options['text_zero_suffix'], $options['text_one_suffix'], $options['text_more_suffix'], 'update');
-			} else {
+			}
+			//UN-RECOMMEND
+			else if(isset($_POST['recommend_id']) && $_POST['type'] == 'delete'){
+			    $post_id = str_replace('dot-irecommendthis-', '', $_POST['recommend_id']);
+				echo $this->dot_recommend_this($post_id, $options['text_zero_suffix'], $options['text_one_suffix'], $options['text_more_suffix'], 'delete');
+			}
+			else {
 				// AJAXing data in. Get Count
 				$post_id = str_replace('dot-irecommendthis-', '', $_POST['post_id']);
 				echo $this->dot_recommend_this($post_id, $options['text_zero_suffix'], $options['text_one_suffix'], $options['text_more_suffix'], 'get');
@@ -446,7 +452,21 @@ if ( ! class_exists( 'DOT_IRecommendThis' ) )
 
 
 			switch($action) {
+				case 'delete':
+					if(isset($_COOKIE['dot_irecommendthis_'. $post_id])) {
+					  setcookie('dot_irecommendthis_'. $post_id, '', time() - 3600,'/'); // empty value and old timestamp
+					}
+					delete_post_meta($post_id, '_recommended');
+					$deleteById = $post_id;
+					global $wpdb;
+					$wpdb->query( $wpdb->prepare(
+						"DELETE FROM ".$wpdb->prefix."irecommendthis_votes"." WHERE post_id = %d",
+					        array(
+							$deleteById
+						)
+					) );
 
+					$action='get';
 				case 'get':
 					$recommended = get_post_meta($post_id, '_recommended', true);
 					if( !$recommended ){
@@ -751,7 +771,7 @@ if ( ! class_exists( 'DOT_IRecommendThis' ) )
 
 				$request = "SELECT * FROM $wpdb->posts, $wpdb->postmeta";
 				$request .= " WHERE $wpdb->posts.ID = $wpdb->postmeta.post_id";
-				$request .= " AND post_status='publish' AND post_type='$post_type' AND meta_key='_recommended'";
+				$request .= " AND post_status='publish' AND post_type='$post_type' AND meta_key='_recommended' AND meta_value>0";
 				$request .= " ORDER BY $wpdb->postmeta.meta_value+0 DESC LIMIT $numberOf";
 				$posts = $wpdb->get_results($request);
 
